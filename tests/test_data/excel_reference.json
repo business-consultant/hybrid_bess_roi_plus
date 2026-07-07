@@ -1,0 +1,28 @@
+{
+  "inputs": {
+    "capex_per_mw": 400000,
+    "opex_per_mw_year": 11000,
+    "discount_rate": 0.06,
+    "avg_spread_price": 65,
+    "rated_power_mw": 50,
+    "c_rate_inverse": 4,
+    "eqo_cycles": 7000,
+    "lifespan_years": 15,
+    "initial_soh": 1.0,
+    "rte": 0.84,
+    "degradation_per_cycle": 0.00005,
+    "soh_min": 0.75,
+    "max_dod": 0.95,
+    "year_cycles": 466.67
+  },
+  "expected_seed_42": {
+    "roi": 0.051874,
+    "van": 22705685,
+    "total_intervals": 525600,
+    "total_years": 15,
+    "soh_year_0": 0.968,
+    "soh_year_14": 0.523,
+    "incumplimientos_gt_0": true,
+    "first_non_compliant_year": 7
+  }
+}
