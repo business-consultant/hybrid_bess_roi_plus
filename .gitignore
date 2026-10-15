@@ -16,3 +16,6 @@ data/parquet/
 .pytest_cache/
 .mypy_cache/
 *.log
+
+# Clones aislados de sesiones de trabajo con el asistente (no son parte del repo)
+hybrid_bess_roi_plus_lee/
