@@ -50,11 +50,11 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
-# Navegación en dos áreas: Vistas de planta (1-2) y Simulador ROI + utilidades (3-8).
+# Navegación en dos áreas: Vistas de planta (1-3) y Simulador ROI + utilidades.
 # El separador visual entre ambas lo aporta el CSS (border en nth-child(3)).
 page = st.sidebar.radio(
     "Navegación",
-    ["Vista de planta", "Elementos de planta", "Simulador ROI",
+    ["Vista de planta", "Elementos de planta", "Trending Charts", "Simulador ROI",
      "Simulaciones Guardadas", "Configuración del Modelo", "Metodología", "Generación de Datos"],
     label_visibility="collapsed",
     key="nav_page",
@@ -66,6 +66,9 @@ if page == "Vista de planta":
 elif page == "Elementos de planta":
     from bess_simulator.ui.views.monitoring import render_monitoring_page
     render_monitoring_page()
+elif page == "Trending Charts":
+    from bess_simulator.ui.views.trending_charts import render_trending_charts_page
+    render_trending_charts_page()
 elif page == "Simulador ROI":
     from bess_simulator.ui.views.simulator import render_simulator_page
     render_simulator_page()
