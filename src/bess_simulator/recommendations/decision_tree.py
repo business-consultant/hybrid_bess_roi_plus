@@ -21,7 +21,12 @@ class RecommendationResult:
     strategic: bool = False
 
 
-def evaluate_roi(roi: float, discount_rate: float, thresholds: dict | None = None) -> RecommendationResult:
+def evaluate_roi(
+    roi: float,
+    discount_rate: float,
+    thresholds: dict | None = None,
+    lang: str = "es",
+) -> RecommendationResult:
     """Evalúa ROI anualizado vs tasa de descuento (ambos tasas anuales).
 
     La tasa de descuento `i` se usa como referencia del coste del capital: un
@@ -36,46 +41,67 @@ def evaluate_roi(roi: float, discount_rate: float, thresholds: dict | None = Non
     i = discount_rate
     high = cfg["rec_roi_high_threshold"]
     band = cfg["rec_roi_diversify_band"]
+    en = lang == "en"
 
     if roi > i and roi > high:
         return RecommendationResult(
             "rentable", "green",
-            "la inversión BESS es rentable y supera el coste del capital con holgura",
+            ("the BESS investment is profitable and comfortably exceeds the cost of capital"
+             if en else
+             "la inversión BESS es rentable y supera el coste del capital con holgura"),
             vs_capital="above",
         )
     elif abs(roi - i) < band and roi > 0:
         return RecommendationResult(
             "rentable_diversificar", "yellow",
-            "la inversión BESS es rentable, aunque su margen sobre el coste del "
-            "capital es ajustado, por lo que conviene diversificar las fuentes de beneficio",
+            ("the BESS investment is profitable, although its margin over the cost of "
+             "capital is tight, so it is advisable to diversify revenue sources"
+             if en else
+             "la inversión BESS es rentable, aunque su margen sobre el coste del "
+             "capital es ajustado, por lo que conviene diversificar las fuentes de beneficio"),
             vs_capital="near",
         )
     elif roi > i and roi <= high:
         return RecommendationResult(
             "moderada", "yellow",
-            "la inversión BESS es rentable con un retorno moderado, por encima del coste del capital",
+            ("the BESS investment is profitable with a moderate return, above the "
+             "cost of capital"
+             if en else
+             "la inversión BESS es rentable con un retorno moderado, por encima del coste del capital"),
             vs_capital="above",
         )
     elif roi >= i and roi <= high:
         return RecommendationResult(
             "moderada", "yellow",
-            "la inversión BESS es rentable con un retorno moderado, en línea con el coste del capital",
+            ("the BESS investment is profitable with a moderate return, in line with "
+             "the cost of capital"
+             if en else
+             "la inversión BESS es rentable con un retorno moderado, en línea con el coste del capital"),
             vs_capital="near",
         )
     elif roi > 0 and roi < i:
         return RecommendationResult(
             "baja", "blue",
-            "la rentabilidad de la BESS queda por debajo del coste del capital: en "
-            "términos puramente financieros el capital rendiría más en otra inversión "
-            "de riesgo similar, de modo que solo compensa si la instalación aporta "
-            "valor estratégico (cobertura, servicios de red o posicionamiento)",
+            ("the BESS's profitability falls below the cost of capital: in purely "
+             "financial terms the capital would yield more in another investment of "
+             "similar risk, so it only pays off if the installation brings strategic "
+             "value (hedging, grid services or positioning)"
+             if en else
+             "la rentabilidad de la BESS queda por debajo del coste del capital: en "
+             "términos puramente financieros el capital rendiría más en otra inversión "
+             "de riesgo similar, de modo que solo compensa si la instalación aporta "
+             "valor estratégico (cobertura, servicios de red o posicionamiento)"),
             vs_capital="below", strategic=True,
         )
     else:
         return RecommendationResult(
             "no_rentable", "blue",
-            "con los parámetros actuales la inversión BESS no resulta rentable; solo "
-            "tendría sentido asumirla por razones estratégicas o revisando las hipótesis del caso",
+            ("with the current parameters the BESS investment is not profitable; it "
+             "would only make sense for strategic reasons or by revisiting the case's "
+             "assumptions"
+             if en else
+             "con los parámetros actuales la inversión BESS no resulta rentable; solo "
+             "tendría sentido asumirla por razones estratégicas o revisando las hipótesis del caso"),
             vs_capital="negative", strategic=True,
         )
 
@@ -94,6 +120,7 @@ def evaluate_degradation(
     last_year_degradation: float,
     soh_min: float,
     soh_end_by_year: "list[float] | None" = None,
+    lang: str = "es",
 ) -> DegradationResult:
     """Evalúa si el ciclado compromete el SoH mínimo garantizado.
 
@@ -102,6 +129,7 @@ def evaluate_degradation(
     informar al operador a partir de cuándo se incumple la garantía.
     """
     threshold = 1.0 - soh_min
+    en = lang == "en"
 
     first_breach_year: int | None = None
     if soh_end_by_year is not None:
@@ -113,22 +141,31 @@ def evaluate_degradation(
     if last_year_degradation >= threshold:
         if first_breach_year is not None:
             msg = (
-                f"el ritmo de ciclado previsto lleva el SoH por debajo del mínimo "
-                f"garantizado a partir del año {first_breach_year}, una consecuencia "
-                f"a valorar frente a la rentabilidad obtenida"
+                (f"the expected cycling rate takes SoH below the guaranteed minimum "
+                 f"starting in year {first_breach_year}, a consequence to weigh "
+                 f"against the profitability obtained")
+                if en else
+                (f"el ritmo de ciclado previsto lleva el SoH por debajo del mínimo "
+                 f"garantizado a partir del año {first_breach_year}, una consecuencia "
+                 f"a valorar frente a la rentabilidad obtenida")
             )
         else:
             msg = (
-                "el ritmo de ciclado previsto llevará el SoH por debajo del mínimo "
-                "recomendado al final de la vida útil, una consecuencia a valorar "
-                "frente a la rentabilidad obtenida"
+                ("the expected cycling rate will take SoH below the recommended "
+                 "minimum by the end of the useful life, a consequence to weigh "
+                 "against the profitability obtained")
+                if en else
+                ("el ritmo de ciclado previsto llevará el SoH por debajo del mínimo "
+                 "recomendado al final de la vida útil, una consecuencia a valorar "
+                 "frente a la rentabilidad obtenida")
             )
         return DegradationResult(True, "blue", msg, first_breach_year=first_breach_year)
     else:
-        return DegradationResult(
-            False, "green",
-            "queda margen de degradación antes de alcanzar el SoH mínimo, por lo que "
-            "es posible ciclar algo más la batería para extraer más valor",
-            first_breach_year=None,
+        msg = (
+            ("there is still room for degradation before reaching the minimum SoH, "
+             "so the battery could be cycled somewhat more to extract additional value")
+            if en else
+            ("queda margen de degradación antes de alcanzar el SoH mínimo, por lo que "
+             "es posible ciclar algo más la batería para extraer más valor")
         )
-
+        return DegradationResult(False, "green", msg, first_breach_year=None)

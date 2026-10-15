@@ -1,5 +1,6 @@
 import streamlit as st
 
+from bess_simulator.i18n import render_language_selector, t
 from bess_simulator.storage.paths import get_db_path, get_parquet_dir
 from bess_simulator.storage.schema import init_db
 from bess_simulator.storage.app_config import load_config
@@ -39,7 +40,7 @@ st.markdown("""
 
 st.sidebar.markdown(
     '<div style="display:flex; align-items:baseline; gap:0.45rem; '
-    'margin:0.4rem 0 1.3rem 0;">'
+    'margin:0.4rem 0 0.6rem 0;">'
     '<span style="font-size:1.75rem; font-weight:800; letter-spacing:-0.02em; '
     'color:#1F4BFF; line-height:1;">Bluence</span>'
     '<span style="color:#1F4BFF; opacity:0.35; font-weight:300; '
@@ -50,12 +51,29 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
+render_language_selector()
+st.sidebar.markdown('<div style="margin-bottom:0.7rem"></div>', unsafe_allow_html=True)
+
 # Navegación en dos áreas: Vistas de planta (1-3) y Simulador ROI + utilidades.
 # El separador visual entre ambas lo aporta el CSS (border en nth-child(3)).
+# Los valores de las opciones se mantienen en español (claves internas usadas en el
+# enrutamiento y en atajos de otras pantallas); solo la etiqueta mostrada se traduce.
+_NAV_OPTIONS = ["Vista de planta", "Elementos de planta", "Trending Charts", "Simulador ROI",
+                "Simulaciones Guardadas", "Configuración del Modelo", "Metodología", "Generación de Datos"]
+_NAV_LABELS_EN = {
+    "Vista de planta": "Plant View",
+    "Elementos de planta": "Plant Elements",
+    "Trending Charts": "Trending Charts",
+    "Simulador ROI": "ROI Simulator",
+    "Simulaciones Guardadas": "Saved Simulations",
+    "Configuración del Modelo": "Model Settings",
+    "Metodología": "Methodology",
+    "Generación de Datos": "Data Generation",
+}
 page = st.sidebar.radio(
     "Navegación",
-    ["Vista de planta", "Elementos de planta", "Trending Charts", "Simulador ROI",
-     "Simulaciones Guardadas", "Configuración del Modelo", "Metodología", "Generación de Datos"],
+    _NAV_OPTIONS,
+    format_func=lambda opt: t(opt, _NAV_LABELS_EN[opt]),
     label_visibility="collapsed",
     key="nav_page",
 )

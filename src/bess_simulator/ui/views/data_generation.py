@@ -9,6 +9,7 @@ import streamlit as st
 from datetime import date, timedelta
 
 from bess_simulator.config import DEFAULTS, RANGES
+from bess_simulator.i18n import t
 from bess_simulator.data.synthetic import generate_dashboard_dataset
 from bess_simulator.data.meteo import generate_meteo_dataset
 from bess_simulator.data.pv import generate_pv_dataset
@@ -236,25 +237,30 @@ def render_data_generation_page():
     render_sticky_header("Generación de Datos Sintéticos")
 
     st.caption(
-        "Pantalla de **administración / validación del prototipo**. Aquí se parametriza y "
-        "genera el dataset sintético que las pantallas de operación consumen como si fueran "
-        "datos reales. El operador no edita estos parámetros."
+        t(
+            "Pantalla de **administración / validación del prototipo**. Aquí se parametriza y "
+            "genera el dataset sintético que las pantallas de operación consumen como si fueran "
+            "datos reales. El operador no edita estos parámetros.",
+            "A **prototype administration / validation** screen. Here the synthetic dataset "
+            "consumed by the operation screens (as if it were real data) is configured and "
+            "generated. The operator does not edit these parameters.",
+        )
     )
 
     # --- Rango temporal y frontera HOY ---
     col_dates, col_gran = st.columns([3, 2])
     with col_dates:
         date_range = st.date_input(
-            "Rango de operación",
+            t("Rango de operación", "Operating range"),
             value=(DEFAULT_GENERATION_PARAMS["start"], DEFAULT_GENERATION_PARAMS["end"]),
             min_value=date(2020, 1, 1),
             max_value=date(2045, 12, 31),
             key="gen_date_range",
-            help="Período total del dataset. Antes de HOY = histórico sintético, después = proyección",
+            help=t("Período total del dataset. Antes de HOY = histórico sintético, después = proyección", "Total period of the dataset. Before TODAY = synthetic history, after = forecast"),
         )
 
     if not isinstance(date_range, tuple) or len(date_range) != 2:
-        st.warning("Selecciona un rango de fechas válido.")
+        st.warning(t("Selecciona un rango de fechas válido.", "Select a valid date range."))
         return
 
     start, end = date_range
@@ -264,52 +270,66 @@ def render_data_generation_page():
         default_hoy = start + (end - start) // 2
 
     hoy = st.date_input(
-        "Fecha HOY (frontera histórico / proyección)",
+        t("Fecha HOY (frontera histórico / proyección)", "TODAY's date (historical / forecast boundary)"),
         value=default_hoy,
         min_value=start,
         max_value=end,
         key="gen_hoy",
-        help="Frontera entre datos históricos (modelado experto OMIE) y proyección (parámetros del Simulador)",
+        help=t("Frontera entre datos históricos (modelado experto OMIE) y proyección (parámetros del Simulador)", "Boundary between historical data (OMIE expert modeling) and forecast (Simulator parameters)"),
     )
     st.caption(
-        "Los datos **antes de HOY** son históricos sintéticos (modelado experto BESS + OMIE). "
-        "Los datos **desde HOY** son proyección que usa los **parámetros de simulación del operador** "
-        "(spread, ciclos, RTE, degradación y DoD se editan en el **Simulador**, no aquí)."
+        t(
+            "Los datos **antes de HOY** son históricos sintéticos (modelado experto BESS + OMIE). "
+            "Los datos **desde HOY** son proyección que usa los **parámetros de simulación del operador** "
+            "(spread, ciclos, RTE, degradación y DoD se editan en el **Simulador**, no aquí).",
+            "Data **before TODAY** is synthetic historical data (expert BESS + OMIE modeling). "
+            "Data **from TODAY** is a forecast that uses the **operator's simulation parameters** "
+            "(spread, cycles, RTE, degradation and DoD are edited in the **Simulator**, not here).",
+        )
     )
 
     # --- Emplazamiento / capa meteorológica (realidad del sitio) ---
-    with st.expander("Emplazamiento y meteorología", expanded=False):
+    with st.expander(t("Emplazamiento y meteorología", "Site and weather"), expanded=False):
         st.caption(
-            "Propiedades físicas del emplazamiento que definen el recurso solar (la \"realidad\" "
-            "del sitio). Alimentan la generación PV y la monitorización de subelementos. "
-            "El **dimensionado** de la PV y la red es decisión del operador (en el Simulador)."
+            t(
+                "Propiedades físicas del emplazamiento que definen el recurso solar (la \"realidad\" "
+                "del sitio). Alimentan la generación PV y la monitorización de subelementos. "
+                "El **dimensionado** de la PV y la red es decisión del operador (en el Simulador).",
+                "Physical site properties that define the solar resource (the site's \"reality\"). "
+                "They feed the PV generation and subelement monitoring. The **sizing** of the PV "
+                "and the grid is the operator's decision (in the Simulator).",
+            )
         )
         latitude = st.slider(
-            "Latitud (°)",
+            t("Latitud (°)", "Latitude (°)"),
             min_value=float(RANGES["pv_latitude"][0]),
             max_value=float(RANGES["pv_latitude"][1]),
             value=float(DEFAULTS["pv_latitude"]),
             step=1.0,
             key="gen_latitude",
-            help="Latitud del emplazamiento. Determina la geometría solar (elevación) y por tanto la irradiancia de cielo claro generada",
+            help=t("Latitud del emplazamiento. Determina la geometría solar (elevación) y por tanto la irradiancia de cielo claro generada", "Site latitude. Determines the solar geometry (elevation) and therefore the generated clear-sky irradiance"),
         )
 
     # --- Proyección futura: tomada de los parámetros del Simulador (operador) ---
     proj = _projection_params_from_simulator()
-    with st.expander("Proyección futura (parámetros del Simulador)", expanded=False):
+    with st.expander(t("Proyección futura (parámetros del Simulador)", "Future forecast (Simulator parameters)"), expanded=False):
         st.caption(
-            "Estos valores son **parámetros de simulación** y se editan en el **Simulador** "
-            "(operador). Aquí se muestran solo para referencia del dataset que se generará."
+            t(
+                "Estos valores son **parámetros de simulación** y se editan en el **Simulador** "
+                "(operador). Aquí se muestran solo para referencia del dataset que se generará.",
+                "These values are **simulation parameters** and are edited in the **Simulator** "
+                "(operator). They are shown here only as a reference for the dataset to be generated.",
+            )
         )
-        ref = "de la simulación actual" if st.session_state.get("inputs") is not None else "por defecto del modelo"
-        st.caption(f"Origen de los valores: **{ref}**.")
+        ref = t("de la simulación actual", "from the current simulation") if st.session_state.get("inputs") is not None else t("por defecto del modelo", "model defaults")
+        st.caption(t(f"Origen de los valores: **{ref}**.", f"Source of the values: **{ref}**."))
         rc1, rc2, rc3 = st.columns(3)
-        rc1.metric("Spread medio", f"{proj['avg_spread_eur']:.0f} €/MWh")
-        rc2.metric("Ciclos equiv./día", f"{proj['future_cycles_per_day']:.2f}")
-        rc3.metric("RTE esperado", f"{proj['future_rte'] * 100:.1f} %")
+        rc1.metric(t("Spread medio", "Average spread"), f"{proj['avg_spread_eur']:.0f} €/MWh")
+        rc2.metric(t("Ciclos equiv./día", "Equiv. cycles/day"), f"{proj['future_cycles_per_day']:.2f}")
+        rc3.metric(t("RTE esperado", "Expected RTE"), f"{proj['future_rte'] * 100:.1f} %")
         rc4, rc5, _ = st.columns(3)
-        rc4.metric("Degradación/ciclo", f"{proj['future_degradation_per_cycle'] * 100:.4f} %")
-        rc5.metric("DoD máximo", f"{proj['max_dod'] * 100:.0f} %")
+        rc4.metric(t("Degradación/ciclo", "Degradation/cycle"), f"{proj['future_degradation_per_cycle'] * 100:.4f} %")
+        rc5.metric(t("DoD máximo", "Maximum DoD"), f"{proj['max_dod'] * 100:.0f} %")
 
     params = {
         "start": start, "hoy": hoy, "end": end,
@@ -324,34 +344,34 @@ def render_data_generation_page():
     # --- Estado del dataset activo ---
     active = st.session_state.get("active_dataset")
     if active is not None:
-        st.info(f"**Dataset activo:** {active['label']} — consumido por Dashboard y Simulador.")
+        st.info(t(f"**Dataset activo:** {active['label']} — consumido por Dashboard y Simulador.", f"**Active dataset:** {active['label']} — consumed by the Dashboard and Simulator."))
         meteo_df = active.get("meteo")
         pv_df = active.get("pv")
         if meteo_df is not None and not meteo_df.empty:
             ghi_mean = float(meteo_df["ghi"].mean())
             mc1, mc2, mc3 = st.columns(3)
-            mc1.metric("GHI medio", f"{ghi_mean:.0f} W/m²", help="Irradiancia horizontal global media de la serie generada")
-            mc2.metric("Temp. ambiente media", f"{float(meteo_df['temp_ambient'].mean()):.1f} °C")
+            mc1.metric(t("GHI medio", "Average GHI"), f"{ghi_mean:.0f} W/m²", help=t("Irradiancia horizontal global media de la serie generada", "Average global horizontal irradiance of the generated series"))
+            mc2.metric(t("Temp. ambiente media", "Average ambient temp."), f"{float(meteo_df['temp_ambient'].mean()):.1f} °C")
             if pv_df is not None and not pv_df.empty:
                 pv_energy_gwh = float(pv_df["p_ac_mw"].sum()) * 0.25 / 1000.0
-                mc3.metric("Energía PV ref. (PvParams def.)", f"{pv_energy_gwh:,.1f} GWh", help="Energía AC del perfil PV de referencia (dimensionado por defecto). El dimensionado real lo fija el operador")
+                mc3.metric(t("Energía PV ref. (PvParams def.)", "Ref. PV energy (default PvParams)"), f"{pv_energy_gwh:,.1f} GWh", help=t("Energía AC del perfil PV de referencia (dimensionado por defecto). El dimensionado real lo fija el operador", "AC energy of the reference PV profile (default sizing). Real sizing is set by the operator"))
     else:
-        st.info("Aún no hay dataset activo. Pulsa **Generar dataset** para crear uno.")
+        st.info(t("Aún no hay dataset activo. Pulsa **Generar dataset** para crear uno.", "There is no active dataset yet. Click **Generate dataset** to create one."))
 
     col_gen, col_save = st.columns(2)
     with col_gen:
-        if st.button("Generar dataset", type="primary", use_container_width=True,
-                     help="Genera el dataset sintético y lo fija como dataset activo"):
-            with st.spinner("Generando datos sintéticos..."):
+        if st.button(t("Generar dataset", "Generate dataset"), type="primary", use_container_width=True,
+                     help=t("Genera el dataset sintético y lo fija como dataset activo", "Generates the synthetic dataset and sets it as the active dataset")):
+            with st.spinner(t("Generando datos sintéticos...", "Generating synthetic data...")):
                 st.session_state["active_dataset"] = build_active_dataset(params, calibration)
-            st.success("Dataset generado y fijado como activo.")
+            st.success(t("Dataset generado y fijado como activo.", "Dataset generated and set as active."))
             st.rerun()
 
     with col_save:
-        dataset_name = st.text_input("Nombre", key="gen_save_name", placeholder="Ej: Jarama junio")
-        if st.button("Guardar dataset en BD", type="secondary", use_container_width=True,
-                     help="Persiste el dataset (histórico + proyección) para consulta posterior"):
-            with st.spinner("Generando y guardando..."):
+        dataset_name = st.text_input(t("Nombre", "Name"), key="gen_save_name", placeholder=t("Ej: Jarama junio", "E.g.: Jarama June"))
+        if st.button(t("Guardar dataset en BD", "Save dataset to DB"), type="secondary", use_container_width=True,
+                     help=t("Persiste el dataset (histórico + proyección) para consulta posterior", "Persists the dataset (historical + forecast) for later review")):
+            with st.spinner(t("Generando y guardando...", "Generating and saving...")):
                 bundle = build_active_dataset(params, calibration)
                 st.session_state["active_dataset"] = bundle
                 dash_repo = st.session_state["dash_repo"]
@@ -368,18 +388,18 @@ def render_data_generation_page():
                     "seed": 42,
                 }
                 run_id = dash_repo.save(save_params, bundle["df"], name=dataset_name or None)
-            st.success(f"Dataset guardado: {dataset_name or run_id[:8]}")
+            st.success(t(f"Dataset guardado: {dataset_name or run_id[:8]}", f"Dataset saved: {dataset_name or run_id[:8]}"))
 
     # --- Exportación de las 3 capas (Excel multihoja, 15 min) ---
     st.divider()
     if active is not None:
         st.download_button(
-            "Exportar 3 capas (Excel, 15 min)",
+            t("Exportar 3 capas (Excel, 15 min)", "Export 3 layers (Excel, 15 min)"),
             data=export_dataset_layers_to_excel(active),
             file_name=f"dataset_capas_{start}_{end}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
-            help="Descarga BESS, meteorología y generación PV (resolución 15 min) en un único Excel multihoja",
+            help=t("Descarga BESS, meteorología y generación PV (resolución 15 min) en un único Excel multihoja", "Downloads BESS, weather and PV generation data (15-min resolution) in a single multi-sheet Excel file"),
         )
     else:
-        st.caption("Genera un dataset para habilitar la exportación de las 3 capas.")
+        st.caption(t("Genera un dataset para habilitar la exportación de las 3 capas.", "Generate a dataset to enable the export of the 3 layers."))

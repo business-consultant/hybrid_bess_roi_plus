@@ -1,7 +1,21 @@
 import streamlit as st
 
+from bess_simulator.i18n import t
+
+_TITLES_EN = {
+    "Simulador — Análisis de Sensibilidad": "Simulator — Sensitivity Analysis",
+    "Dashboard Histórico BESS": "BESS Historical Dashboard",
+    "Planta Híbrida PV + BESS": "Hybrid Plant PV + BESS",
+    "Elementos de Planta": "Plant Elements",
+    "Simulaciones Guardadas": "Saved Simulations",
+    "Configuración Avanzada": "Advanced Settings",
+    "Metodología": "Methodology",
+    "Generación de Datos Sintéticos": "Synthetic Data Generation",
+}
+
 
 def render_sticky_header(title: str) -> None:
+    title = t(title, _TITLES_EN.get(title, title))
     st.markdown(
         f"""
         <style>
@@ -82,15 +96,19 @@ def render_view_range(bundle: dict) -> tuple:
     with col_range:
         st.markdown(
             '<div style="text-align:right;color:#9aa4b2;font-size:0.78rem;'
-            'margin-bottom:-0.4rem">📅 Rango de visualización</div>',
+            f'margin-bottom:-0.4rem">📅 {t("Rango de visualización", "Display range")}</div>',
             unsafe_allow_html=True,
         )
         sel = st.date_input(
-            "Rango de visualización",
+            t("Rango de visualización", "Display range"),
             min_value=start_d, max_value=end_d,
             key="view_range",
             label_visibility="collapsed",
-            help="Periodo aplicado a todos los KPIs y variables de esta vista y "
-                 "de la vista de planta. No afecta a la vida útil del ROI.",
+            help=t(
+                "Periodo aplicado a todos los KPIs y variables de esta vista y "
+                "de la vista de planta. No afecta a la vida útil del ROI.",
+                "Period applied to all KPIs and variables in this view and in "
+                "the plant view. Does not affect the ROI's useful life.",
+            ),
         )
     return sel

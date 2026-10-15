@@ -67,15 +67,22 @@ def check_historical_alarms(
     interval_data: pd.DataFrame,
     rte_range: tuple[float, float] = (0.80, 0.90),
     cfg: dict | None = None,
+    lang: str = "es",
 ) -> list[Alarm]:
     """Detecta eventos críticos en el histórico (seguridad/salud/garantía).
 
     Escanea las columnas disponibles en ``interval_data``. Si una columna no
     está presente, simplemente se omite esa comprobación (compatibilidad con
     datasets parciales como el del motor de simulación, que solo aporta RTE).
+
+    ``lang`` solo afecta al texto libre de ``Alarm.message``; los campos
+    estructurales (``parameter``, ``category``, ``subelement``) se mantienen
+    en español porque se usan como identificadores internos en otras pantallas.
     """
     if interval_data is None or interval_data.empty:
         return []
+
+    en = lang == "en"
 
     # Umbrales (configurables); valores por defecto seguros si no hay cfg.
     cfg = cfg or {}
@@ -95,8 +102,11 @@ def check_historical_alarms(
             alarms.append(Alarm(
                 parameter="Temperatura",
                 message=(
-                    f"Sobre-temperatura por encima de {temp_critical:.0f} °C en "
-                    f"{count:,} intervalos (pico {worst:.1f} °C)"
+                    (f"Over-temperature above {temp_critical:.0f} °C in "
+                     f"{count:,} intervals (peak {worst:.1f} °C)")
+                    if en else
+                    (f"Sobre-temperatura por encima de {temp_critical:.0f} °C en "
+                     f"{count:,} intervalos (pico {worst:.1f} °C)")
                 ),
                 category=CATEGORY_SAFETY,
                 severity=SEVERITY_CRITICAL,
@@ -117,8 +127,11 @@ def check_historical_alarms(
             alarms.append(Alarm(
                 parameter="RTE",
                 message=(
-                    f"Rendimiento de ciclo por debajo del mínimo contractual "
-                    f"({rte_min:.0%}) en {count:,} intervalos (mínimo {worst:.1%})"
+                    (f"Round-trip efficiency below the contractual minimum "
+                     f"({rte_min:.0%}) in {count:,} intervals (minimum {worst:.1%})")
+                    if en else
+                    (f"Rendimiento de ciclo por debajo del mínimo contractual "
+                     f"({rte_min:.0%}) en {count:,} intervalos (mínimo {worst:.1%})")
                 ),
                 category=CATEGORY_WARRANTY,
                 severity=SEVERITY_WARNING,
@@ -139,8 +152,11 @@ def check_historical_alarms(
             alarms.append(Alarm(
                 parameter="SoH",
                 message=(
-                    f"Estado de salud por debajo del mínimo garantizado "
-                    f"({soh_min:.0%}) en {count:,} intervalos (mínimo {worst:.1%})"
+                    (f"State of health below the guaranteed minimum "
+                     f"({soh_min:.0%}) in {count:,} intervals (minimum {worst:.1%})")
+                    if en else
+                    (f"Estado de salud por debajo del mínimo garantizado "
+                     f"({soh_min:.0%}) en {count:,} intervalos (mínimo {worst:.1%})")
                 ),
                 category=CATEGORY_HEALTH,
                 severity=SEVERITY_CRITICAL,
@@ -155,11 +171,16 @@ def check_historical_alarms(
     return alarms
 
 
-def generate_alarm_message(alarms: list[Alarm]) -> str:
+def generate_alarm_message(alarms: list[Alarm], lang: str = "es") -> str:
     """Resumen en lenguaje natural de los parámetros con eventos registrados."""
     if not alarms:
         return ""
     params = ", ".join(a.parameter for a in alarms)
+    if lang == "en":
+        return (
+            "The BESS system has at times operated outside the recommended ranges "
+            f"for {params}."
+        )
     return (
         "El sistema BESS ha operado puntualmente fuera de los rangos aconsejados "
         f"en términos de {params}."

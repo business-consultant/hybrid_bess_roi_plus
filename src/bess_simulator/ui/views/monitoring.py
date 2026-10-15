@@ -18,6 +18,7 @@ import html
 
 import streamlit as st
 
+from bess_simulator.i18n import t
 from bess_simulator.models.parameters import SimulationInputs, PvParams
 
 from bess_simulator.engine.plant import compute_plant_summary, slice_bundle
@@ -31,7 +32,9 @@ from bess_simulator.ui.components.charts import (
 from bess_simulator.ui.views.data_generation import ensure_active_dataset
 
 
-# Subelementos: (título, descripción, tipo de detalle).
+# Subelementos: (título, descripción, tipo de detalle). Los nombres se mantienen
+# en español como claves internas (session_state, routing); solo se traduce la
+# etiqueta mostrada en pantalla, vía ``_element_label``/``_element_desc``.
 _SUBELEMENTS = [
     ("Módulos BESS", "Racks/contenedores de baterías", "bess"),
     ("PCS", "Inversores (acoplamiento AC: BESS + campo PV)", "pcs"),
@@ -40,6 +43,25 @@ _SUBELEMENTS = [
     ("Estación meteorológica", "Irradiancia, temperatura, viento, humedad", "meteo"),
 ]
 _SUBELEMENT_TYPE = {name: kind for name, _, kind in _SUBELEMENTS}
+
+_ELEMENT_LABEL_EN = {
+    "Módulos BESS": "BESS Modules",
+    "PCS": "PCS",
+    "HVAC": "HVAC",
+    "Transformadores": "Transformers",
+    "Estación meteorológica": "Weather Station",
+}
+_ELEMENT_DESC_EN = {
+    "Racks/contenedores de baterías": "Battery racks/containers",
+    "Inversores (acoplamiento AC: BESS + campo PV)": "Inverters (AC-coupled: BESS + PV field)",
+    "Climatización de los contenedores": "Container air conditioning",
+    "Elevadores y de servicios auxiliares": "Step-up and auxiliary service transformers",
+    "Irradiancia, temperatura, viento, humedad": "Irradiance, temperature, wind, humidity",
+}
+
+
+def _element_label(name: str) -> str:
+    return t(name, _ELEMENT_LABEL_EN.get(name, name))
 
 
 def _goto_plant() -> None:
@@ -60,9 +82,9 @@ def _clear_element() -> None:
 
 def _status_legend() -> None:
     st.markdown(
-        f"{STATUS_ICON['disponible']} {STATUS_LABEL['disponible']} &nbsp;·&nbsp; "
-        f"{STATUS_ICON['aviso']} {STATUS_LABEL['aviso']} &nbsp;·&nbsp; "
-        f"{STATUS_ICON['fallo']} {STATUS_LABEL['fallo']}",
+        f"{STATUS_ICON['disponible']} {t(STATUS_LABEL['disponible'], 'Available')} &nbsp;·&nbsp; "
+        f"{STATUS_ICON['aviso']} {t(STATUS_LABEL['aviso'], 'Warning')} &nbsp;·&nbsp; "
+        f"{STATUS_ICON['fallo']} {t(STATUS_LABEL['fallo'], 'Fault')}",
         unsafe_allow_html=True,
     )
 
@@ -90,12 +112,12 @@ def _render_left_panel(summary, panel: dict) -> None:
     with st.container(border=True):
         st.markdown("#### BESS Data")
         a, b = st.columns(2)
-        a.metric("Potencia activa", f"{panel['active_power_mw']:.1f} MW")
-        b.metric("Energía exportada", f"{panel['energy_exported_mwh']:,.1f} MWh")
-        a.metric("Potencia reactiva", f"{panel['reactive_power_mvar']:.1f} Mvar")
-        b.metric("Energía importada", f"{panel['energy_imported_mwh']:,.1f} MWh")
-        a.metric("Factor de potencia", f"{panel['power_factor']:.2f}")
-        b.metric("Factor de capacidad", f"{panel['capacity_factor_pct']:.1f} %")
+        a.metric(t("Potencia activa", "Active power"), f"{panel['active_power_mw']:.1f} MW")
+        b.metric(t("Energía exportada", "Energy exported"), f"{panel['energy_exported_mwh']:,.1f} MWh")
+        a.metric(t("Potencia reactiva", "Reactive power"), f"{panel['reactive_power_mvar']:.1f} Mvar")
+        b.metric(t("Energía importada", "Energy imported"), f"{panel['energy_imported_mwh']:,.1f} MWh")
+        a.metric(t("Factor de potencia", "Power factor"), f"{panel['power_factor']:.2f}")
+        b.metric(t("Factor de capacidad", "Capacity factor"), f"{panel['capacity_factor_pct']:.1f} %")
 
         st.markdown("#### Devices Data")
         counts = {
@@ -114,14 +136,14 @@ def _render_scada_header(title: str) -> None:
     with c1:
         st.markdown(
             '<span style="background:#2fae5f;color:#fff;font-weight:700;'
-            'padding:2px 10px;border-radius:5px;font-size:0.8rem">Disponible</span>'
+            f'padding:2px 10px;border-radius:5px;font-size:0.8rem">{t("Disponible", "Available")}</span>'
             '&nbsp;&nbsp;<span style="font-weight:700;font-size:1.05rem">'
             '🔋 BESS 001</span>',
             unsafe_allow_html=True,
         )
     with c2:
-        st.button("← Volver", on_click=_clear_element, use_container_width=True)
-    st.markdown(f"### {title}")
+        st.button(t("← Volver", "← Back"), on_click=_clear_element, use_container_width=True)
+    st.markdown(f"### {_element_label(title)}")
 
 
 def _render_snapshot_table(snapshot) -> None:
@@ -129,7 +151,7 @@ def _render_snapshot_table(snapshot) -> None:
     st.markdown(
         f"{STATUS_ICON['disponible']} {counts['disponible']} &nbsp;·&nbsp; "
         f"{STATUS_ICON['aviso']} {counts['aviso']} &nbsp;·&nbsp; "
-        f"{STATUS_ICON['fallo']} {counts['fallo']} &nbsp; equipos",
+        f"{STATUS_ICON['fallo']} {counts['fallo']} &nbsp; {t('equipos', 'units')}",
         unsafe_allow_html=True,
     )
     st.dataframe(
@@ -144,12 +166,14 @@ def _render_snapshot_table(snapshot) -> None:
 # Pantallas de detalle por subelemento
 # ---------------------------------------------------------------------------
 
-def _render_warranty_header(kpis: list[dict], title: str = "Warranty compliance · resumen del grupo") -> None:
+def _render_warranty_header(kpis: list[dict], title: str | None = None) -> None:
     """Cabecera de tarjetas KPI con semáforo de estado.
 
     Cada tarjeta lleva un *semáforo*: borde e ícono en verde / ámbar / rojo
     según el ``status`` (las informativas se pintan en azul).
     """
+    if title is None:
+        title = t("Warranty compliance · resumen del grupo", "Warranty compliance · group summary")
     if not kpis:
         return
     accent = {
@@ -214,9 +238,14 @@ def _detail_bess(summary, bundle) -> None:
         elements.build_bess_warranty_kpis(snapshot, thresholds)
     )
     st.caption(
-        "Indicadores agregados del periodo por módulo (carga, SoC, SoH, DoD "
-        "máx., temperatura máx. de celda, desviación máx. de tensión, "
-        "intensidad máx. y ciclos equivalentes). Datos sintéticos del prototipo."
+        t(
+            "Indicadores agregados del periodo por módulo (carga, SoC, SoH, DoD "
+            "máx., temperatura máx. de celda, desviación máx. de tensión, "
+            "intensidad máx. y ciclos equivalentes). Datos sintéticos del prototipo.",
+            "Period-aggregated indicators per module (charge, SoC, SoH, max DoD, "
+            "max cell temperature, max voltage deviation, max current and "
+            "equivalent cycles). Synthetic prototype data.",
+        )
     )
     _render_snapshot_table(snapshot)
 
@@ -224,19 +253,30 @@ def _detail_bess(summary, bundle) -> None:
 def _detail_pcs(summary, bundle) -> None:
     snapshot = elements.build_pcs_snapshot(summary, bundle.get("df"))
     st.caption(
-        "Indicadores agregados del periodo por convertidor (PR del inversor, "
-        "producción y disponibilidad). Planta acoplada en AC: el PCS es a la vez "
-        "inversor del BESS y del campo PV. Datos sintéticos."
+        t(
+            "Indicadores agregados del periodo por convertidor (PR del inversor, "
+            "producción y disponibilidad). Planta acoplada en AC: el PCS es a la vez "
+            "inversor del BESS y del campo PV. Datos sintéticos.",
+            "Period-aggregated indicators per converter (inverter PR, production and "
+            "availability). AC-coupled plant: the PCS is both the BESS inverter and "
+            "the PV field inverter. Synthetic data.",
+        )
     )
     _render_snapshot_table(snapshot)
 
     series = elements.build_pcs_power_series(summary, bundle)
     if series is not None and not series.empty:
         st.caption(
-            "Potencia específica de cada inversor = potencia activa AC / potencia "
-            "DC instalada (p.u.), magnitud comparable entre inversores con "
-            "independencia de su tamaño. Una línea por inversor (media diaria) y "
-            "la media del grupo destacada."
+            t(
+                "Potencia específica de cada inversor = potencia activa AC / potencia "
+                "DC instalada (p.u.), magnitud comparable entre inversores con "
+                "independencia de su tamaño. Una línea por inversor (media diaria) y "
+                "la media del grupo destacada.",
+                "Specific power of each inverter = active AC power / installed DC "
+                "power (p.u.), a magnitude comparable across inverters regardless of "
+                "size. One line per inverter (daily average) with the group average "
+                "highlighted.",
+            )
         )
         st.plotly_chart(
             chart_pcs_specific_power(series), use_container_width=True
@@ -246,11 +286,15 @@ def _detail_pcs(summary, bundle) -> None:
 def _detail_meteo(summary, bundle) -> None:
     meteo = bundle.get("meteo")
     if meteo is None or meteo.empty:
-        st.info("No hay serie meteorológica en el dataset activo.")
+        st.info(t("No hay serie meteorológica en el dataset activo.", "There is no weather series in the active dataset."))
         return
     st.caption(
-        "Estación meteorológica a resolución nativa de 15 min: irradiancia "
-        "(recurso solar) y condiciones ambientales."
+        t(
+            "Estación meteorológica a resolución nativa de 15 min: irradiancia "
+            "(recurso solar) y condiciones ambientales.",
+            "Weather station at native 15-min resolution: irradiance (solar "
+            "resource) and ambient conditions.",
+        )
     )
     pyranometers = elements.build_meteo_pyranometers(meteo)
     st.plotly_chart(chart_meteo_irradiance(pyranometers), use_container_width=True)
@@ -260,7 +304,7 @@ def _detail_meteo(summary, bundle) -> None:
 def _detail_hvac(summary, bundle) -> None:
     df = bundle.get("df")
     if df is None or df.empty or "temperature" not in df.columns:
-        st.info("No hay serie de temperatura en el dataset activo.")
+        st.info(t("No hay serie de temperatura en el dataset activo.", "There is no temperature series in the active dataset."))
         return
     cfg = st.session_state.get("app_config") or {}
     temp_critical = float(cfg.get("alarm_temp_critical_c", 40.0))
@@ -278,13 +322,19 @@ def _detail_hvac(summary, bundle) -> None:
 
     _render_warranty_header(
         elements.build_hvac_kpis(snapshot, summary, params),
-        title="Climatización HVAC · resumen del grupo",
+        title=t("Climatización HVAC · resumen del grupo", "HVAC air conditioning · group summary"),
     )
     st.caption(
-        "Indicadores agregados del periodo por contenedor (1 HVAC + 1 sistema "
-        "de supresión por contenedor). COP en modo enfriamiento, uniformidad "
-        "térmica ΔT entre sensores, consumo eléctrico y disponibilidad. "
-        "Datos sintéticos del prototipo."
+        t(
+            "Indicadores agregados del periodo por contenedor (1 HVAC + 1 sistema "
+            "de supresión por contenedor). COP en modo enfriamiento, uniformidad "
+            "térmica ΔT entre sensores, consumo eléctrico y disponibilidad. "
+            "Datos sintéticos del prototipo.",
+            "Period-aggregated indicators per container (1 HVAC + 1 suppression "
+            "system per container). Cooling-mode COP, thermal uniformity ΔT between "
+            "sensors, electrical consumption and availability. Synthetic prototype "
+            "data.",
+        )
     )
 
     g1, g2 = st.columns([1, 2])
@@ -303,8 +353,12 @@ def _detail_hvac(summary, bundle) -> None:
     _render_snapshot_table(snapshot)
 
     st.caption(
-        "Temperatura operativa del sistema BESS, vigilada por la climatización "
-        "(HVAC). La línea roja marca el umbral crítico de seguridad."
+        t(
+            "Temperatura operativa del sistema BESS, vigilada por la climatización "
+            "(HVAC). La línea roja marca el umbral crítico de seguridad.",
+            "BESS system operating temperature, monitored by the air conditioning "
+            "(HVAC). The red line marks the critical safety threshold.",
+        )
     )
     st.plotly_chart(
         chart_bess_temperature(df, temp_critical=temp_critical),
@@ -314,10 +368,14 @@ def _detail_hvac(summary, bundle) -> None:
 
 def _detail_transformer(summary, bundle) -> None:
     st.caption(
-        "Transformadores elevadores y de servicios auxiliares. "
-        "El detalle de telemetría se incorporará con la capa de datos eléctrica."
+        t(
+            "Transformadores elevadores y de servicios auxiliares. "
+            "El detalle de telemetría se incorporará con la capa de datos eléctrica.",
+            "Step-up and auxiliary service transformers. "
+            "Telemetry detail will be added with the electrical data layer.",
+        )
     )
-    st.metric("Transformadores en servicio", f"{max(1, int(summary.power_stations))}")
+    st.metric(t("Transformadores en servicio", "Transformers in service"), f"{max(1, int(summary.power_stations))}")
     _status_legend()
 
 
@@ -348,24 +406,24 @@ def _render_detail(name: str, summary, bundle, panel: dict) -> None:
 
 def _render_element_card(name: str, desc: str) -> None:
     with st.container(border=True):
-        st.markdown(f"##### {name}")
-        st.caption(desc)
+        st.markdown(f"##### {_element_label(name)}")
+        st.caption(t(desc, _ELEMENT_DESC_EN.get(desc, desc)))
         st.button(
-            "Ver detalle →", key=f"open_{name}",
+            t("Ver detalle →", "View detail →"), key=f"open_{name}",
             on_click=_select_element, args=(name,),
             use_container_width=True,
         )
 
 
 def _render_overview(summary, bundle, panel: dict) -> None:
-    st.caption("Portfolio Híbrido › Planta › Elementos")
-    st.button("← Volver a la vista de planta", on_click=_goto_plant)
+    st.caption(t("Portfolio Híbrido › Planta › Elementos", "Hybrid Portfolio › Plant › Elements"))
+    st.button(t("← Volver a la vista de planta", "← Back to plant view"), on_click=_goto_plant)
 
     left, right = st.columns([1.3, 3])
     with left:
         _render_left_panel(summary, panel)
     with right:
-        st.markdown("#### Subelementos")
+        st.markdown(t("#### Subelementos", "#### Subelements"))
         _status_legend()
         cols = st.columns(2)
         for i, (name, desc, _kind) in enumerate(_SUBELEMENTS):
@@ -385,10 +443,10 @@ def render_monitoring_page():
     sel = render_view_range(bundle)
     if isinstance(sel, tuple) and len(sel) == 2:
         sel_start, sel_end = sel
-        st.caption(f"📅 Visualizando **{sel_start} → {sel_end}** · periodo común a todas las vistas.")
+        st.caption(t(f"📅 Visualizando **{sel_start} → {sel_end}** · periodo común a todas las vistas.", f"📅 Viewing **{sel_start} → {sel_end}** · period common to all views."))
         view_bundle = slice_bundle(bundle, sel_start, sel_end)
     else:
-        st.info("Selecciona un rango de visualización (fecha inicio y fin).")
+        st.info(t("Selecciona un rango de visualización (fecha inicio y fin).", "Select a display range (start and end date)."))
         return
 
     inputs = st.session_state.get("inputs")

@@ -1,4 +1,5 @@
 import streamlit as st
+from bess_simulator.i18n import t
 from bess_simulator.recommendations import FullRecommendation
 
 
@@ -10,28 +11,36 @@ _STATUS_MAP = {
     "green": {
         "accent": "#1e8e3e",
         "icon": "✓",
-        "label": "Rentable y seguro",
+        "label_es": "Rentable y seguro",
+        "label_en": "Profitable and safe",
     },
     "yellow": {
         "accent": "#f29900",
         "icon": "!",
-        "label": "Rentable con aspectos a vigilar",
+        "label_es": "Rentable con aspectos a vigilar",
+        "label_en": "Profitable with aspects to watch",
     },
     "blue": {
         "accent": "#3b6ea5",
         "icon": "i",
-        "label": "A valorar por el operador",
+        "label_es": "A valorar por el operador",
+        "label_en": "For the operator to assess",
     },
 }
 
 
 def render_recommendations(rec: FullRecommendation):
     st.caption(
-        "Verde = rentable y seguro · Ámbar = rentable con aspectos a vigilar · "
-        "Azul = consecuencias a valorar por el operador"
+        t(
+            "Verde = rentable y seguro · Ámbar = rentable con aspectos a vigilar · "
+            "Azul = consecuencias a valorar por el operador",
+            "Green = profitable and safe · Amber = profitable with aspects to watch · "
+            "Blue = consequences for the operator to assess",
+        )
     )
     status = _STATUS_MAP.get(rec.overall_color, _STATUS_MAP["yellow"])
     accent = status["accent"]
+    label = t(status["label_es"], status["label_en"])
 
     st.markdown(
         f"""<div style="
@@ -58,9 +67,9 @@ def render_recommendations(rec: FullRecommendation):
               <div style="
                   font-size:0.72rem; font-weight:700; letter-spacing:0.09em;
                   text-transform:uppercase; color:#6b7280;
-              ">Recomendación</div>
+              ">{t('Recomendación', 'Recommendation')}</div>
               <div style="font-size:1.18rem; font-weight:800; color:#111827; line-height:1.25;">
-                {status['label']}
+                {label}
               </div>
             </div>
           </div>

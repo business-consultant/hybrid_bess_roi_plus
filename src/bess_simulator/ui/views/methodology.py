@@ -1,17 +1,23 @@
 import streamlit as st
 
+from bess_simulator.i18n import t
+
 
 def render_methodology_page():
     from bess_simulator.ui.components.sticky_header import render_sticky_header
     render_sticky_header("Metodología")
     st.markdown(
-        "Esta sección describe las reglas de cálculo, modelos de datos sintéticos "
-        "y criterios de recomendación utilizados por el simulador."
+        t(
+            "Esta sección describe las reglas de cálculo, modelos de datos sintéticos "
+            "y criterios de recomendación utilizados por el simulador.",
+            "This section describes the calculation rules, synthetic data models and "
+            "recommendation criteria used by the simulator.",
+        )
     )
 
     # ── Sección 1: Motor de Simulación ──
-    with st.expander("Motor de Simulación", expanded=False):
-        st.markdown("""
+    with st.expander(t("Motor de Simulación", "Simulation Engine"), expanded=False):
+        st.markdown(t("""
 **Resolución temporal:** 15 minutos (96 intervalos/día) durante toda la vida útil del proyecto.
 
 #### Fórmulas principales
@@ -73,11 +79,73 @@ Para simular condiciones reales, se aplica variación aleatoria controlada (con 
 
 Se cuenta el número de intervalos donde la degradación acumulada supera el umbral `(1 - SoH_mínimo)`.
 Ejemplo: si SoH_mín = 75%, el umbral es 25% de degradación.
-""")
+""", """
+**Time resolution:** 15 minutes (96 intervals/day) across the project's entire useful life.
+
+#### Main formulas
+
+**Available capacity:**
+```
+Capacity₀ = Power × C-Rate × Initial_SoH
+Capacity_t = (1 - Accumulated_degradation_t) × Capacity₀
+```
+
+**Accumulated degradation:**
+```
+Degradation_t = Degradation_(t-1) + degradation_per_cycle × cycles_t
+```
+
+**Energy sold per interval (15 min):**
+```
+Energy = Capacity_t × Interval_cycles × RTE × Maximum_DoD × 0.25h
+```
+
+**Income:**
+```
+Income = Energy_sold × SPREAD_price
+```
+
+**Cash flow:**
+```
+Cash_Flow = Income - Interval_OPEX
+Interval_OPEX = Annual_OPEX / (365 × 96)
+```
+
+**Discounted cash flow (DCF):**
+```
+DCF_t = Cash_Flow_t / (1 + discount_rate)^(t / 365)
+```
+
+**NPV (Net Present Value):**
+```
+NPV = Σ DCF_t  (across all intervals)
+```
+
+**ROI (Return on Investment):**
+```
+ROI = Final_accumulated_DCF / Total_CAPEX
+where Final_accumulated_DCF = -CAPEX + Σ DCF_t
+```
+
+#### Stochastic variability
+
+To simulate real conditions, controlled random variation is applied (with a seed for reproducibility):
+
+| Variable | Variation | Distribution |
+|----------|-----------|-------------|
+| Cycles per interval | +0% to +40% over the base | Uniform |
+| RTE per interval | From 95% of the base up to +15% | Uniform |
+| SPREAD price | From 70% of the base up to +100% | Uniform |
+
+#### SoH breaches
+
+The number of intervals where accumulated degradation exceeds the threshold `(1 - Minimum_SoH)` is counted.
+Example: if Min_SoH = 75%, the threshold is 25% degradation.
+"""))
 
     # ── Sección 2: Modelo de Precios OMIE ──
-    with st.expander("Modelo de Precios OMIE (Datos Sintéticos)", expanded=False):
-        st.markdown("""
+    with st.expander(t("Modelo de Precios OMIE (Datos Sintéticos)", "OMIE Price Model (Synthetic Data)"), expanded=False):
+        st.markdown(t("""
 Los datos históricos del dashboard utilizan un modelo experto del mercado eléctrico español (OMIE)
 que combina patrones diarios, semanales y estacionales. Los precios horarios reales son públicos
 en [omie.es](https://www.omie.es/en/market-results/daily/daily-market/daily-hourly-price).
@@ -129,11 +197,63 @@ Precio(hora) = Base + Valle + Pico_mañana + Caída_solar + Pico_tarde
 | **Carga** | 02:00 - 06:00 | Compra barata | Precios en el valle nocturno |
 | **Descarga AM** | 08:00 - 10:00 | Venta en pico matutino | Arranque industrial |
 | **Descarga PM** | 19:00 - 21:00 | Venta en pico vespertino | Demanda doméstica |
-""")
+""", """
+The dashboard's historical data uses an expert model of the Spanish electricity market (OMIE)
+that combines daily, weekly and seasonal patterns. The real hourly prices are public
+at [omie.es](https://www.omie.es/en/market-results/daily/daily-market/daily-hourly-price).
+Historical spreads observed in Spain ranged between 25 and 67 €/MWh (H1 2021-2023).
+
+#### Daily price curve
+
+```
+Price(hour) = Base + Valley + Morning_peak + Solar_dip + Evening_peak
+```
+
+| Component | Center (hour) | Amplitude (€/MWh) | Effect |
+|-----------|:------------:|:-----------------:|--------|
+| Base | — | 55.0 | Base level |
+| Valley | 04:00 | -10.0 | Early morning, minimum demand |
+| Morning peak | 09:00 | +30.0 | Industrial startup |
+| Solar dip | 13:30 | -15.0 | Photovoltaic injection |
+| Evening peak | 20:00 | +38.0 | Maximum household demand |
+
+#### Weekly factors
+
+| Day | Factor |
+|-----|:------:|
+| Monday - Friday | 1.00 |
+| Saturday | 0.82 |
+| Sunday | 0.78 |
+
+#### Seasonal factors (by month)
+
+| Month | Factor | | Month | Factor |
+|-----|:------:|-|-----|:------:|
+| January | 1.12 | | July | 1.10 |
+| February | 1.10 | | August | 1.10 |
+| March | 0.95 | | September | 1.00 |
+| April | 0.85 | | October | 0.95 |
+| May | 0.85 | | November | 1.05 |
+| June | 0.95 | | December | 1.15 |
+
+#### Stochastic noise
+
+- **Daily noise:** N(0, 5) €/MWh — same value throughout the day
+- **Intraday noise:** N(0, 2) €/MWh — varies every 15 minutes
+- **Limits:** final price clipped to **[20, 150] €/MWh**
+
+#### Arbitrage windows
+
+| Window | Schedule | Action | Logic |
+|---------|---------|--------|--------|
+| **Charge** | 02:00 - 06:00 | Buy cheap | Overnight valley prices |
+| **Discharge AM** | 08:00 - 10:00 | Sell at the morning peak | Industrial startup |
+| **Discharge PM** | 19:00 - 21:00 | Sell at the evening peak | Household demand |
+"""))
 
     # ── Sección 2b: Reconciliación híbrida PV↔BESS ──
-    with st.expander("Reconciliación híbrida PV↔BESS (sinergia y curtailment)", expanded=False):
-        st.markdown(r"""
+    with st.expander(t("Reconciliación híbrida PV↔BESS (sinergia y curtailment)", "Hybrid PV↔BESS reconciliation (synergy and curtailment)"), expanded=False):
+        st.markdown(t(r"""
 La PV y la BESS se analizan con **ROI/VAN independientes** (no comparten CAPEX),
 pero comparten el **punto de interconexión (POI)** y se alimentan mutuamente. La
 reconciliación se hace a **nivel anual agregado** sobre el año representativo.
@@ -173,11 +293,51 @@ E_{PV\to red}^{neto} = E_{PV\to red} - E_{curt}^{conc}$$
 $$\text{Coste}_{curt} = \sum_{t=1}^{N} \frac{E_{curt}^{(t)} \cdot P_{PV}}{(1+r)^t}$$
 
 > Detalle completo y supuestos en `docs/02-design/balance-hibrido-pv-bess.md`.
-""")
+""", r"""
+PV and BESS are analyzed with **independent ROI/NPV** (they do not share CAPEX),
+but they share the **point of interconnection (POI)** and feed each other. The
+reconciliation is done at an **aggregated annual level** over the representative year.
+
+#### 1. PV→BESS energy at ZERO cost
+
+The PV energy diverted to the battery ($E_{PV\to BESS}$) is assigned **zero
+charging cost**: the PV **does not charge** for it (it does not enter as PV
+revenue, avoiding double counting) and the BESS receives it **for free**.
+
+#### 2. Synergy credit (boosts the spread)
+
+The BESS's annual charging demand is reconciled with its discharged energy:
+
+$$E_{charge}^{BESS} = \frac{E_{discharge}^{BESS}}{\eta_{RTE}}, \qquad
+f_{PV} = \frac{\min(E_{PV\to BESS},\, E_{charge}^{BESS})}{E_{charge}^{BESS}}$$
+
+The fraction $f_{PV}$ of the charge supplied by PV avoids buying that energy in
+the pool. With PV at zero cost, the **net saving** is the avoided grid charging
+price $P_{charge}$ (OMIE-valley proxy, `bess_grid_charge_price` parameter):
+
+$$\text{Synergy}_{credit} = \sum_{t=1}^{N} \frac{E_{PV\to BESS}^{(t)} \cdot P_{charge}}{(1+r)^t}, \qquad
+\text{spread}_{eff} = \text{spread}_{base} + \frac{E_{PV\to BESS}\cdot P_{charge}}{E_{discharge}^{BESS}}$$
+
+The credit is added to the **plant NPV** = $NPV_{BESS} + NPV_{PV} + \text{Synergy}_{credit}$.
+
+#### 3. Estimated curtailment (not assumed to be zero)
+
+In addition to the physical clipping when PV exceeds the POI, a **residual from
+concurrency** between PV+BESS at the shared POI is estimated (parameter
+`poi_concurrency_curtail_pct`), because both compete for the same export limit.
+It reduces the **sellable PV production** and has an associated cost:
+
+$$E_{curt}^{conc} = p_{conc}\cdot E_{PV\to grid}, \qquad
+E_{PV\to grid}^{net} = E_{PV\to grid} - E_{curt}^{conc}$$
+
+$$\text{Cost}_{curt} = \sum_{t=1}^{N} \frac{E_{curt}^{(t)} \cdot P_{PV}}{(1+r)^t}$$
+
+> Full detail and assumptions in `docs/02-design/balance-hibrido-pv-bess.md`.
+"""))
 
     # ── Sección 3: Datos Sintéticos ──
-    with st.expander("Datos Sintéticos: Histórico vs Proyección", expanded=False):
-        st.markdown("""
+    with st.expander(t("Datos Sintéticos: Histórico vs Proyección", "Synthetic Data: Historical vs Forecast"), expanded=False):
+        st.markdown(t("""
 El dashboard genera dos regímenes de datos separados por la **fecha HOY**:
 
 #### Régimen Histórico (antes de HOY)
@@ -211,11 +371,45 @@ Controlado por los parámetros que configura el usuario.
 
 El SoH de la proyección arranca desde el último valor del régimen histórico, garantizando
 continuidad en la curva. Los ciclos acumulados también se heredan.
-""")
+""", """
+The dashboard generates two data regimes separated by **TODAY's date**:
+
+#### Historical Regime (before TODAY)
+
+Based on expert modeling. Does not depend on the user's parameters.
+
+| Variable | Model | Typical values |
+|----------|--------|:---------------:|
+| Prices | Full OMIE curve (see previous section) | 20 - 150 €/MWh |
+| Energy sold | 70-92% utilization in discharge windows | Variable |
+| Capture price | 92-102% of the market price at discharge | Variable |
+| Daily cycles | Uniform 0.8 - 1.8 FEC/day | ~1.3 |
+| SoH | Calendar degradation 1.5%/year + cyclic 0.01%/cycle (see sources) | Decreasing |
+| RTE | Starts at 87%, degrades 0.4%/year + noise N(0, 1.2%) (NREL ATB: 85% ref.) | ~85% |
+| Temperature | Seasonal (14-30°C) + daily (±3°C) + operation (+1.5-3.5°C) | 18 - 38°C |
+
+#### Forecast Regime (from TODAY)
+
+Controlled by the parameters the user configures.
+
+| Variable | Source | Behavior |
+|----------|--------|---------------|
+| Prices | OMIE scaled by `user_spread / 40` | Same shape, adjusted amplitude |
+| Energy sold | `Power × 0.25h × DoD × utilization (75-90%)` | Controlled by DoD |
+| Cycles | User parameter ± 5% | Stable |
+| SoH | Continues from the last historical value | `Hist_SoH - calendar - cycle × degradation` |
+| RTE | User parameter ± N(0, 0.8%) | Stable |
+| Temperature | Same seasonal model as historical | 18 - 38°C |
+
+#### Continuity at the TODAY boundary
+
+The forecast's SoH starts from the last value of the historical regime, guaranteeing
+continuity in the curve. Accumulated cycles are also inherited.
+"""))
 
     # ── Sección 4: Matriz de Sensibilidad ──
-    with st.expander("Matriz de Sensibilidad", expanded=False):
-        st.markdown("""
+    with st.expander(t("Matriz de Sensibilidad", "Sensitivity Matrix"), expanded=False):
+        st.markdown(t("""
 La matriz de sensibilidad evalúa cómo varía el ROI al cambiar dos parámetros simultáneamente:
 
 - **Filas:** 7 valores de precio de retribución (±30% del valor base, en pasos del 10%)
@@ -231,11 +425,27 @@ Todos los demás parámetros (CAPEX, tasa de descuento, RTE, degradación, etc.)
 fijos en los valores del caso base. Esto permite aislar el efecto combinado del coste
 operativo y el precio de venta sobre la rentabilidad —ambas son palancas accionables por
 el operador, a diferencia del CAPEX, ya comprometido en la fase de inversión.
-""")
+""", """
+The sensitivity matrix evaluates how ROI varies when changing two parameters simultaneously:
+
+- **Rows:** 7 retribution price values (±30% of the base value, in 10% steps)
+- **Columns:** 5 OPEX values (±20% of the base value, in 10% steps)
+- **Cells:** ROI resulting from running a full simulation for each combination
+
+The matrix is **dynamically centered on the base case**: the central row and column (0%)
+reproduce exactly the OPEX and price entered by the user, so the central cell matches
+the base case's ROI. When the inputs change, the entire matrix is recalculated around
+the new central value.
+
+All other parameters (CAPEX, discount rate, RTE, degradation, etc.) remain fixed at the
+base case values. This isolates the combined effect of operating cost and sale price on
+profitability — both are levers the operator can act on, unlike CAPEX, already
+committed at the investment stage.
+"""))
 
     # ── Sección 5: Sistema de Recomendaciones ──
-    with st.expander("Sistema de Recomendaciones", expanded=False):
-        st.markdown("""
+    with st.expander(t("Sistema de Recomendaciones", "Recommendation System"), expanded=False):
+        st.markdown(t("""
 El sistema genera recomendaciones automáticas encadenando varias evaluaciones:
 
 ```
@@ -281,11 +491,57 @@ aconsejados en: **C-Rate, RTE, DoD, SoC y Temperatura**.
 - **Verde:** La inversión es rentable y los parámetros están en rango seguro
 - **Amarillo:** La inversión puede ser rentable pero hay parámetros a revisar
 - **Rojo:** La inversión no es rentable o la degradación compromete la vida útil
-""")
+""", """
+The system generates automatic recommendations by chaining several evaluations:
+
+```
+Historical alarms → ROI Evaluation → Degradation Evaluation
+→ 5 Sub-recommendations → Composite message
+```
+
+#### Profitability Evaluation (ROI)
+
+| Condition | Result | Color |
+|-----------|-----------|:-----:|
+| ROI > discount rate **and** ROI > 8% | Profitable | Green |
+| ROI ≈ discount rate **and** ROI > 8% | Profitable, diversify | Green |
+| ROI > discount rate **and** ROI < 8% | Moderate profitability | Yellow |
+| ROI < discount rate **and** ROI > 8% | Moderate-low profitability | Yellow |
+| ROI < discount rate **and** 0% ≤ ROI < 8% | Low profitability | Yellow |
+| ROI < 0% | Not profitable | Red |
+
+#### Degradation Evaluation
+
+| Condition | Result | Color |
+|-----------|-----------|:-----:|
+| Last-year degradation ≥ (1 - minimum SoH) | Compromises minimum SoH | Red |
+| Last-year degradation < (1 - minimum SoH) | Room to cycle more | Green |
+
+#### Sub-recommendations per parameter
+
+| Parameter | OK | Warning | Alert |
+|-----------|:--:|:-----:|:------:|
+| **Discount rate** | < 8% | 8% - 10% | > 10% |
+| **OPEX** | < 10K €/MW/year | 10K - 15K | > 15K |
+| **RTE** | > 90% | 80% - 90% | < 80% |
+| **Useful life** | ≥ 15 years | 10 - 15 years | < 10 years |
+| **Retribution price** | > 45 €/MWh | 30 - 45 €/MWh | < 30 €/MWh |
+
+#### Operational alarms
+
+The system monitors whether the simulation's historical data operates outside the
+recommended ranges for: **C-Rate, RTE, DoD, SoC and Temperature**.
+
+#### Color code
+
+- **Green:** The investment is profitable and the parameters are in a safe range
+- **Yellow:** The investment may be profitable but there are parameters to review
+- **Red:** The investment is not profitable or degradation compromises the useful life
+"""))
 
     # ── Sección 6: Fuentes y Referencias ──
-    with st.expander("Fuentes y Referencias", expanded=False):
-        st.markdown("""
+    with st.expander(t("Fuentes y Referencias", "Sources and References"), expanded=False):
+        st.markdown(t("""
 Los valores y supuestos del simulador se fundamentan en las siguientes fuentes públicas:
 
 #### Costes y parámetros económicos (CAPEX, OPEX, vida útil)
@@ -335,4 +591,54 @@ Los valores y supuestos del simulador se fundamentan en las siguientes fuentes p
 > **Nota:** Los valores del modelo son aproximaciones calibradas para LiFePO4 (LFP) en el mercado
 > ibérico. Para análisis con otras químicas (NMC, NCA) o mercados, los parámetros deberían
 > ajustarse según las fuentes específicas del caso.
-""")
+""", """
+The simulator's values and assumptions are based on the following public sources:
+
+#### Costs and economic parameters (CAPEX, OPEX, useful life)
+
+| Source | Data used |
+|--------|-----------------|
+| **NREL ATB 2024** — [atb.nrel.gov/electricity/2024/utility-scale_battery_storage](https://atb.nrel.gov/electricity/2024/utility-scale_battery_storage) | Reference RTE: **85%**. Useful life: **15 years**. Fixed O&M: **2.5% of CAPEX/year**. Assumes ~1 cycle/day. Covers NMC and LFP chemistries |
+| **Lazard LCOE+ (June 2024)** — [lazard.com/media/xemfey0k/lazards-lcoeplus-june-2024-_vf.pdf](https://www.lazard.com/media/xemfey0k/lazards-lcoeplus-june-2024-_vf.pdf) | LCOS for 100MW/400MWh. Budgeted degradation: **0.66-1.85% CAPEX/year**. Operation: **1 cycle/day × 350 days/year** |
+| **Ember (2025)** — [ember-energy.org/latest-insights/how-cheap-is-battery-storage](https://ember-energy.org/latest-insights/how-cheap-is-battery-storage/) | Global CAPEX: **$125/kWh** (equipment $75 + installation $50). Europe: **~€120/kWh**. Annual degradation: **≤2%**. AC-AC RTE: **90%**. Guaranteed cycles: **10,000-12,000+**. Annual OPEX: **~2% of CAPEX** |
+
+#### Electricity market prices
+
+| Source | Data used |
+|--------|-----------------|
+| **OMIE** — [omie.es/en/market-results](https://www.omie.es/en/market-results/daily/daily-market/daily-hourly-price) | Hourly prices of the Iberian day-ahead market (Spain and Portugal). Public downloadable data. Basis for the synthetic model's daily curve |
+| **Synertics (2023)** — [synertics.io/blog/69](https://synertics.io/blog/69/arbitrage-navigating-market-deviations-while-maximising-profits) | Arbitrage spreads observed in Spain: **25.56** (H1 2021), **67.61** (H1 2022), **44.88** (H1 2023) €/MWh in day-ahead prices |
+
+#### LFP battery degradation
+
+| Source | Data used |
+|--------|-----------------|
+| **MDPI Applied Sciences (2025)** — "Study on Influencing Factors of Calendar Aging and Cycle Aging of LFP Batteries" — [mdpi.com/2076-3417/15/23/12749](https://www.mdpi.com/2076-3417/15/23/12749) | Calendar aging dominated by SOC and temperature. Cycle aging dominated by DOD, C-rate and temperature |
+| **MDPI Energies (2021)** — "The Degradation Behavior of LiFePO4/C Batteries during Long-Term Calendar Aging" — [mdpi.com/1996-1073/14/6/1732](https://www.mdpi.com/1996-1073/14/6/1732) | Long-term LFP calendar aging behavior. Cells at low SOC and low temperature: **<0.5%/year** |
+| **Nature Communications (2025)** — "The importance of degradation mode analysis in parameterising lifetime prediction models" — [nature.com/articles/s41467-025-57968-3](https://www.nature.com/articles/s41467-025-57968-3) | Lifetime prediction models. Degradation mode analysis (SEI, lithium loss, active material loss) |
+
+#### BESS arbitrage and operating strategy
+
+| Source | Data used |
+|--------|-----------------|
+| **ResearchGate (2023)** — "The value of electricity storage arbitrage on day-ahead markets across Europe" | Value of arbitrage in European markets, including Spain |
+| **eFinancialModels** — "What Is The Duck Curve?" — [efinancialmodels.com](https://www.efinancialmodels.com/knowledge-base/templates/battery-energy-storage-system-bess/what-is-the-duck-curve-electricity-pricing-in-the-age-of-solar-and-batteries-624997/) | Duck curve pattern: solar excess 11:00-15:00 (low prices for charging), evening demand peaks (high prices for discharging) |
+
+#### Model ↔ sources mapping
+
+| Model parameter | Value used | Reference |
+|---------------------|:-----------:|-----------|
+| Base RTE | 85-87% | NREL ATB 2024 (85%), Ember (90% AC-AC) |
+| Calendar degradation | 1.5%/year | Conservative relative to Ember (≤2%/year), in line with LFP literature |
+| Cyclic degradation | 0.005-0.02%/cycle | Range validated by Ember (10K-12K cycles for 35% fade → ~0.003%/cycle) |
+| CAPEX | 300K-1M €/MW | Wide range covering the current European market (~€120/kWh × 4h = ~€480K/MW for 4h) |
+| OPEX | 11K-22.5K €/MW/year | Compatible with NREL (2.5% CAPEX) and Ember (2% CAPEX) |
+| Useful life | 10-15 years | NREL ATB 2024 (15 years), Ember (20-year design) |
+| Lifetime cycles | 6,000-8,000 | Conservative relative to Ember (10K-12K guaranteed) |
+| SPREAD price | 20-100 €/MWh | Covers the range observed in OMIE/Synertics (25-67 €/MWh) |
+| Arbitrage windows | Charge 02-06h, Discharge 08-10h/19-21h | Consistent with the duck curve and OMIE patterns |
+
+> **Note:** The model's values are calibrated approximations for LiFePO4 (LFP) in the
+> Iberian market. For analysis with other chemistries (NMC, NCA) or markets, the
+> parameters should be adjusted according to the case's specific sources.
+"""))

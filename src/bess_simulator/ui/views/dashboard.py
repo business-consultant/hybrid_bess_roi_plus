@@ -8,6 +8,7 @@ operador trabaja con el dataset como si fuera de datos reales.
 import streamlit as st
 import pandas as pd
 
+from bess_simulator.i18n import t
 from bess_simulator.data.synthetic import aggregate_to_daily
 from bess_simulator.data.export import export_dashboard_to_csv
 from bess_simulator.ui.views.data_generation import ensure_active_dataset
@@ -49,20 +50,24 @@ def render_dashboard_body():
     start, hoy, end = bundle["start"], bundle["hoy"], bundle["end"]
 
     if df.empty:
-        st.warning("El dataset activo no contiene datos. Genera uno en **Generación de Datos**.")
+        st.warning(t("El dataset activo no contiene datos. Genera uno en **Generación de Datos**.", "The active dataset contains no data. Generate one in **Data Generation**."))
         return
 
     # --- Controles de visualización (no afectan a la generación) ---
     col_info, col_gran = st.columns([3, 2])
     with col_info:
         st.caption(
-            f"**Dataset activo:** {bundle['label']}. "
-            "Parametrízalo en **Datos & Modelo → Generación de Datos**."
+            t(
+                f"**Dataset activo:** {bundle['label']}. "
+                "Parametrízalo en **Datos & Modelo → Generación de Datos**.",
+                f"**Active dataset:** {bundle['label']}. "
+                "Configure it in **Data & Model → Data Generation**.",
+            )
         )
     with col_gran:
         granularity = st.radio(
-            "Granularidad", ["Daily", "15-min"], horizontal=True, key="db_gran",
-            help="Daily = 1 dato/día (más rápido). 15-min = 96 datos/día (más detalle)",
+            t("Granularidad", "Granularity"), ["Daily", "15-min"], horizontal=True, key="db_gran",
+            help=t("Daily = 1 dato/día (más rápido). 15-min = 96 datos/día (más detalle)", "Daily = 1 data point/day (faster). 15-min = 96 data points/day (more detail)"),
         )
 
     if granularity == "Daily":
@@ -76,33 +81,33 @@ def render_dashboard_body():
 
     # --- KPI Cards (6) ---
     st.markdown("---")
-    st.markdown("##### Histórico")
+    st.markdown(t("##### Histórico", "##### Historical"))
     h1, h2, h3 = st.columns(3)
     with h1:
         val = hist["income"].sum() if not hist.empty else 0
-        st.metric("Income Histórico", f"{val:,.0f} €", delta=f"{_compute_variation(hist['income']):.2%}" if not hist.empty else "—")
+        st.metric(t("Income Histórico", "Historical Income"), f"{val:,.0f} €", delta=f"{_compute_variation(hist['income']):.2%}" if not hist.empty else "—")
     with h2:
         val = hist["capture_price"].mean() if not hist.empty else 0
-        st.metric("Capture Price Hist.", f"{val:,.2f} €/MWh")
+        st.metric(t("Capture Price Hist.", "Hist. Capture Price"), f"{val:,.2f} €/MWh")
     with h3:
         val = hist["soh"].iloc[-1] if not hist.empty else 1.0
-        st.metric("SoH actual", f"{val:.2%}")
+        st.metric(t("SoH actual", "Current SoH"), f"{val:.2%}")
 
-    st.markdown("##### Proyección")
+    st.markdown(t("##### Proyección", "##### Forecast"))
     f1, f2, f3 = st.columns(3)
     with f1:
         val = fore["income"].sum() if not fore.empty else 0
-        st.metric("Income Proyectado", f"{val:,.0f} €", delta=f"{_compute_variation(fore['income']):.2%}" if not fore.empty else "—")
+        st.metric(t("Income Proyectado", "Forecast Income"), f"{val:,.0f} €", delta=f"{_compute_variation(fore['income']):.2%}" if not fore.empty else "—")
     with f2:
         val = fore["capture_price"].mean() if not fore.empty else 0
-        st.metric("Capture Price Proy.", f"{val:,.2f} €/MWh")
+        st.metric(t("Capture Price Proy.", "Fcst. Capture Price"), f"{val:,.2f} €/MWh")
     with f3:
         val = fore["soh"].iloc[-1] if not fore.empty else 0
-        st.metric("SoH final proyectado", f"{val:.2%}")
+        st.metric(t("SoH final proyectado", "Final forecast SoH"), f"{val:.2%}")
 
     # --- Gráfico principal ---
-    st.markdown("### Evolución temporal")
-    st.caption("Línea vertical = fecha HOY. Izquierda = histórico sintético OMIE. Derecha = proyección paramétrica")
+    st.markdown(t("### Evolución temporal", "### Time evolution"))
+    st.caption(t("Línea vertical = fecha HOY. Izquierda = histórico sintético OMIE. Derecha = proyección paramétrica", "Vertical line = TODAY's date. Left = synthetic OMIE history. Right = parametric forecast"))
     st.plotly_chart(
         chart_dashboard_prices_income(df_display, hoy_ts),
         use_container_width=True,
@@ -114,7 +119,7 @@ def render_dashboard_body():
 
     # --- Pestañas adicionales ---
     st.divider()
-    tab_soh, tab_rte, tab_cycles, tab_temp = st.tabs(["SoH", "RTE", "Ciclos", "Temperatura"])
+    tab_soh, tab_rte, tab_cycles, tab_temp = st.tabs(["SoH", "RTE", t("Ciclos", "Cycles"), t("Temperatura", "Temperature")])
     with tab_soh:
         st.plotly_chart(chart_dashboard_soh(df_display, hoy_ts), use_container_width=True)
     with tab_rte:
@@ -129,21 +134,21 @@ def render_dashboard_body():
     ex1, ex2, ex3 = st.columns(3)
     with ex1:
         st.download_button(
-            "Descargar datos completos (CSV)",
+            t("Descargar datos completos (CSV)", "Download full data (CSV)"),
             data=export_dashboard_to_csv(df, "all"),
             file_name=f"bess_dashboard_{start}_{end}.csv",
             mime="text/csv",
         )
     with ex2:
         st.download_button(
-            "Descargar histórico (CSV)",
+            t("Descargar histórico (CSV)", "Download historical data (CSV)"),
             data=export_dashboard_to_csv(df, "historical"),
             file_name=f"bess_historico_{start}_{hoy}.csv",
             mime="text/csv",
         )
     with ex3:
         st.download_button(
-            "Descargar proyección (CSV)",
+            t("Descargar proyección (CSV)", "Download forecast (CSV)"),
             data=export_dashboard_to_csv(df, "forecast"),
             file_name=f"bess_proyeccion_{hoy}_{end}.csv",
             mime="text/csv",
